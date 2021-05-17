@@ -1,0 +1,186 @@
+// This #include statement was automatically added by the Particle IDE.
+#include <LiquidCrystal_I2C_Spark.h>
+
+LiquidCrystal_I2C lcd(0x27,20,4);  // set the LCD address to 0x27 for a 20 chars and 4 line display
+
+int Rescue = 0;
+int socialRescue = 0;
+
+bool telling = false;
+bool telling2 = false;
+bool datasend = true;
+bool datasend2 = true;
+
+
+unsigned long lastTime = millis();
+unsigned long lastTime2 = millis();
+
+void Personal(const char *event, const char *data)
+{
+    //Rescue = atoi(data);
+    telling = true;
+    datasend = true;
+    lastTime = millis();
+    
+    if  ((strcmp(data,"You spent 4 minutes on All Distracting Time")==0)) {
+        Rescue = 1;
+        }
+        
+    if  ((strcmp(data,"You spent 8 minutes on All Distracting Time")==0)) {
+        Rescue = 2;
+        }
+        
+    if  ((strcmp(data,"You spent 12 minutes on All Distracting Time")==0)) {
+        Rescue = 3;
+        }    
+        
+    if ((strcmp(data,"You spent 16 minutes on All Distracting Time")==0))  {
+        Rescue = 4;
+        }
+        
+    if ((strcmp(data,"You spent 20 minutes on All Distracting Time")==0))  {
+        Rescue = 5;
+        }
+        
+if ((strcmp(data,"You spent 1 hours on All Productive Time")==0) || (strcmp(data,"You spent 2 hours on All Productive Time")==0) || (strcmp(data,"You spent 3 hours minutes on All Productive Time")==0) || (strcmp(data,"You spent 4 hours on All Productive Time")==0)
+|| (strcmp(data,"You spent 5 hours on All Productive Time")==0) || (strcmp(data,"You spent 6 hours on All Productive Time")==0) ||  (strcmp(data,"You spent 7 hours on All Productive Time")==0)) {
+        Rescue = 6;
+        }
+}
+
+void setup() {
+    
+Serial.begin(9600);
+
+lcd.init();
+lcd.backlight();
+    lcd.setCursor(1,0); 
+        lcd.print("Hi there!");
+        lcd.setCursor(1,1); 
+        lcd.print("I am your ");
+        lcd.setCursor(1,2); 
+        lcd.print("Productivity Agent!");
+        delay (120000);
+lcd.clear();
+
+Particle.subscribe("Rescuetime", Personal, MY_DEVICES);
+
+RGB.brightness(0);
+
+}
+
+void loop() {
+    
+    lcd.noBacklight();
+
+if (Rescue == 1){
+    unsigned long Timer = millis() - lastTime;
+        if (Timer <= 120000) {
+             
+              lcd.backlight();
+              lcd.setCursor(1,0); 
+              lcd.print("Focus please");
+              lcd.setCursor(1,1); 
+              lcd.print("I need some");
+              lcd.setCursor(1,2); 
+              lcd.print("results today!");
+    }
+     if (Timer > 120000){
+        lcd.clear();
+        Rescue = 0;
+    }
+}
+
+if (Rescue == 2){
+    unsigned long Timer = millis() - lastTime;
+        if (Timer <= 120000) {
+           
+              lcd.backlight();
+              lcd.setCursor(1,0); 
+              lcd.print("Focus!");
+              lcd.setCursor(1,1); 
+              lcd.print("on your work");
+              lcd.setCursor(1,2); 
+              lcd.print("I want some");
+              lcd.setCursor(1,2); 
+              lcd.print("results today!");
+
+    }
+     if (Timer > 120000){
+        lcd.clear();
+        Rescue = 0;
+    }
+  }
+   
+if (Rescue == 3){
+    unsigned long Timer = millis() - lastTime;
+        if (Timer <= 120000) {
+              
+              lcd.backlight();
+              lcd.setCursor(1,0); 
+              lcd.print("Could you focus");
+              lcd.setCursor(1,1); 
+              lcd.print("It's taking");
+              lcd.setCursor(1,2); 
+              lcd.print("too long");
+    }
+     if (Timer > 120000){
+        lcd.clear();
+        Rescue = 0;
+    }
+}
+
+if (Rescue == 4){
+    unsigned long Timer = millis() - lastTime;
+        if (Timer <= 120000) {
+              
+              lcd.backlight();
+              lcd.setCursor(1,0); 
+              lcd.print("Focus now!");
+    }
+     if (Timer > 120000){
+        lcd.clear();
+        Rescue = 0;
+    }
+}
+
+if (Rescue == 5){
+    unsigned long Timer = millis() - lastTime;
+        if (Timer <= 120000) {
+             
+              lcd.backlight();
+              lcd.setCursor(1,0); 
+              lcd.print("I will not");
+              lcd.setCursor(1,1); 
+              lcd.print("keep this to");
+              lcd.setCursor(1,2); 
+              lcd.print("myself!");
+    }
+     if (Timer > 120000){
+        lcd.clear();
+        Rescue = 0;
+    }
+}
+
+if (Rescue == 6){
+    unsigned long Timer = millis() - lastTime;
+        if (Timer <= 120000) {
+              
+              lcd.backlight();
+              lcd.setCursor(1,0); 
+              lcd.print("Finally, some");
+              lcd.setCursor(1,1); 
+              lcd.print("productivity! This");
+              lcd.setCursor(1,2); 
+              lcd.print("is what I want! ");
+    }
+     if (Timer > 120000){
+        lcd.clear();
+        Rescue = 0;
+    }
+  }
+
+}  
+ 
+
+
