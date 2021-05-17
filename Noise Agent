@@ -1,1 +1,156 @@
 
+// This #include statement was automatically added by the Particle IDE.
+#include <MPU6050.h>
+#include <I2Cdev.h>
+#include <math.h>
+
+// Arduino Wire library is required if I2Cdev I2CDEV_ARDUINO_WIRE implementation
+// is used in I2Cdev.h
+#if (I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE) && !defined (PARTICLE)
+    #include "Wire.h"
+#endif
+
+MPU6050 accelgyro;
+
+int16_t ax, ay, az;
+int16_t gx, gy, gz;
+
+/****************************************
+Example Sound Level Sketch for the 
+Adafruit Microphone Amplifier
+****************************************/
+
+#define sound_CHECK_INTERVAL 10000
+unsigned long lastsoundCheck = 0;
+
+ 
+const int sampleWindow = 100; // Sample window width in mS (50 mS = 50Hz)
+int motorPin = D3;  
+int volts;
+unsigned int sample;
+unsigned long lastTime = millis(); // Timer 
+
+#define OUTPUT_READABLE_ACCELGYRO
+
+
+
+void setup() 
+{
+      // join I2C bus (I2Cdev library doesn't do this automatically)
+    #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+        Wire.begin();
+    #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
+        Fastwire::setup(400, true);
+    #endif
+
+    // initialize serial communication
+    // (38400 chosen because it works as well at 8MHz as it does at 16MHz, but
+    // it's really up to you depending on your project)
+    Serial.begin(38400);
+
+    // initialize device
+    Serial.println("Initializing I2C devices...");
+    accelgyro.initialize();
+
+    // verify connection
+    Serial.println("Testing device connections...");
+    Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
+    pinMode(motorPin, OUTPUT);
+    
+    Particle.syncTime();
+     Time.zone(+2);
+}
+ 
+void loop() {
+    
+        if (Time.hour() == 21){
+    System.sleep(SLEEP_MODE_DEEP, 32400);
+}
+        
+    //Mic Sampling    
+   unsigned long startMillis= millis();  // Start of sample window
+   unsigned int peakToPeak = 0;   // peak-to-peak level
+ 
+   unsigned int signalMax = 0;
+   unsigned int signalMin = 4095;
+ 
+   // collect data for 50 mS
+   while (millis() - startMillis < sampleWindow)
+   {
+      sample = analogRead(0);
+      if (sample < 4095)  // toss out spurious readings
+      {
+         if (sample > signalMax)
+         {
+            signalMax = sample;  // save just the max levels
+         }
+         else if (sample < signalMin)
+         {
+            signalMin = sample;  // save just the min levels
+         }
+      }
+   }
+   peakToPeak = signalMax - signalMin;  // max - min = peak-peak amplitude
+   double volts = ((peakToPeak * 3.3) / 4095) * 0.707;  // convert to RMS voltage
+   double first = log10(volts/0.00631)*20;
+   double Sound = first + 94 - 44 - 14;
+
+    
+accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+ 
+    #ifdef OUTPUT_READABLE_ACCELGYRO
+        // display tab-separated accel/gyro x/y/z values
+        Serial.print("\tAccel X:");
+        Serial.print(ax); 
+        Serial.print("\tAccel Y:");
+        Serial.print(ay); 
+        Serial.print("\tAccel Z:");
+        Serial.print(az); 
+    #endif
+        
+        Serial.print("\tdB:");
+        Serial.print(Sound);
+      
+        
+    int i;
+    i = (int) Sound;
+        
+        if (lastsoundCheck + sound_CHECK_INTERVAL < millis()) {
+   lastsoundCheck = millis();
+      String StrSound = String(i);
+      Particle.publish("sound", StrSound, PRIVATE);
+      String Strgyro = String(az);
+      Particle.publish("az", Strgyro, PRIVATE);
+      }
+       
+  
+if (Sound > 70.00) {
+    unsigned long Timer = millis() - lastTime;
+    Serial.print(" \tTime: ");
+    Serial.println(Timer);
+    if (Timer >= 2000) {
+       for (int fadeValue = 10 ; fadeValue <= 200; fadeValue += 5) 
+  {
+    // sets the value (range from 0 to 255):
+    analogWrite(motorPin, fadeValue);
+    // wait for 30 milliseconds to see the dimming effect
+    delay(50);
+  }
+      digitalWrite(motorPin, LOW); // turn on motor on full power (range is 0 - 1023)
+      delay(1000);
+   
+    }
+
+  }
+    if (Sound < 69.99) {
+      lastTime = millis();
+      digitalWrite(motorPin, LOW); // turn on motor on full power (range is 0 - 1023)
+      Serial.print(" \tState: ");
+      Serial.println("reset");
+    }
+}
+
+
+
+
+
