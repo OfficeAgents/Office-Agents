@@ -1,0 +1,154 @@
+// This #include statement was automatically added by the Particle IDE.
+#include <MPU6050.h>
+
+MPU6050 accelgyro;
+int16_t ax, ay, az;
+int16_t gx, gy, gz;
+
+#define OUTPUT_READABLE_ACCELGYRO
+
+// This #include statement was automatically added by the Particle IDE.
+#include <L9110Driver.h>
+
+L9110_Motor motor(D3, D4);
+
+// Example usage for Adafruit_SGP30 library.
+// This library was modified/wrapped by SJB (https://github.com/dyadica)
+// in order to work with Particle Photon & Core.
+
+ #include "Particle.h"
+ #include "Wire.h"
+ #include "math.h"
+ #include "Adafruit_SGP30.h"
+ 
+ #define air_CHECK_INTERVAL 60000
+unsigned long lastairCheck = 0;
+
+Adafruit_SGP30 sgp;
+
+/* return absolute humidity [mg/m^3] with approximation formula
+* @param temperature [°C]
+* @param humidity [%RH]
+*/
+uint32_t getAbsoluteHumidity(float temperature, float humidity) {
+    // approximation formula from Sensirion SGP30 Driver Integration chapter 3.15
+    const float absoluteHumidity = 216.7f * ((humidity / 100.0f) * 6.112f * exp((17.62f * temperature) / (243.12f + temperature)) / (273.15f + temperature)); // [g/m^3]
+    const uint32_t absoluteHumidityScaled = static_cast<uint32_t>(1000.0f * absoluteHumidity); // [mg/m^3]
+    return absoluteHumidityScaled;
+}
+
+void setup() {
+  
+    motor.run (BRAKE);
+    motor.setSpeed (255);
+  Serial.begin(9600);
+  Serial.println("SGP30 test");
+  
+     Particle.syncTime();
+     Time.zone(+2);
+  
+  
+  Wire.begin();
+
+    // The following line will wait until you connect to the Spark.io using serial and hit enter. This gives
+    // you enough time to start capturing the data when you are ready instead of just spewing data to the UART.
+    //
+    // So, open a serial connection using something like:
+    // screen /dev/tty.usbmodem1411 9600
+    // while(!Serial.available()) SPARK_WLAN_Loop();
+    
+    Serial.println("Initializing I2C devices...");
+    accelgyro.initialize();
+
+    // Cerify the connection:
+    Serial.println("Testing device connections...");
+    Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
+
+  if (! sgp.begin()){
+    Serial.println("Sensor not found :(");
+    while (1);
+  }
+  Serial.print("Found SGP30 serial #");
+  Serial.print(sgp.serialnumber[0], HEX);
+  Serial.print(sgp.serialnumber[1], HEX);
+  Serial.println(sgp.serialnumber[2], HEX);
+
+  // If you have a baseline measurement from before you can assign it to start, to 'self-calibrate'
+  //sgp.setIAQBaseline(0x8E68, 0x8F41);  // Will vary for each sensor!
+}
+
+int counter = 0;
+void loop()
+{
+    
+        if (Time.hour() >= 21){
+    System.sleep(SLEEP_MODE_DEEP, 32400);
+}
+
+  accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+      
+        #ifdef OUTPUT_READABLE_ACCELGYRO
+        // display tab-separated accel/gyro x/y/z values
+        Serial.print("\tAccel Y:");
+        Serial.print(ay); 
+    #endif
+  // If you have a temperature / humidity sensor, you can set the absolute humidity to enable the humditiy compensation for the air quality signals
+  //float temperature = 22.1; // [°C]
+  //float humidity = 45.2; // [%RH]
+  //sgp.setHumidity(getAbsoluteHumidity(temperature, humidity));
+
+  if (! sgp.IAQmeasure()) {
+    Serial.println("Measurement failed");
+    return;
+  }
+  Serial.print("\tTVOC "); Serial.print(sgp.TVOC); Serial.print(" ppb\t");
+  Serial.print("eCO2 "); Serial.print(sgp.eCO2); Serial.println(" ppm");
+  delay(500);
+  
+ 
+  counter++;
+  if (counter == 30) {
+    counter = 0;
+
+    uint16_t TVOC_base, eCO2_base;
+    if (! sgp.getIAQBaseline(&eCO2_base, &TVOC_base)) {
+      Serial.println("Failed to get baseline readings");
+      return;
+    }
+    Serial.print("****Baseline values: eCO2: 0x"); Serial.print(eCO2_base, HEX);
+    Serial.print(" & TVOC: 0x"); Serial.println(TVOC_base, HEX);
+  }
+delay(100);
+
+      
+          if (lastairCheck + air_CHECK_INTERVAL < millis()) {
+  lastairCheck = millis();
+      String StrAir = String(sgp.eCO2);
+      Particle.publish("sgp.eCO2", StrAir, PRIVATE);
+      String Strgyro = String(ay);
+      Particle.publish("ay", Strgyro, PRIVATE);
+      }
+    
+      if (sgp.eCO2 > 600) {
+    
+    motor.run (FORWARD | RELEASE);
+    Serial.print ("Forward...");
+    delay(30000);
+
+    motor.run (BRAKE | BACKWARD);
+    Serial.print ("Braking...");
+    delay (3000);
+
+    motor.run (RELEASE);
+    Serial.print ("Backwards");
+    delay (100);
+
+    motor.setSpeed (0);
+    Serial.print ("Stoping...");
+    delay(100);
+
+    motor.run (BRAKE);
+    motor.setSpeed (255);
+   
+    } 
+}
