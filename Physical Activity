@@ -1,0 +1,126 @@
+
+
+// This #include statement was automatically added by the Particle IDE.
+#include <MPU6050.h>
+#include <SparkFunMAX17043.h>
+#include <math.h>
+
+ 
+
+MPU6050 accelgyro;
+
+int motorPin = D3;
+
+
+int16_t ax, ay, az;
+int16_t gx, gy, gz;
+
+int totalsteps;
+int oldsteps;
+int total = -2;
+
+bool telling = false;
+bool datasend = true;
+bool vibration = true;
+
+unsigned long lastTime = millis();
+unsigned long Timer2;
+
+#define gyro_CHECK_INTERVAL 10000
+unsigned long lastgyroCheck = 0;
+
+int treshhold;
+
+void Personal(const char *event, const char *data)
+{
+    totalsteps = atoi(data);
+    telling = true;
+    datasend = true;
+    vibration = true;
+    lastTime = millis();
+}
+
+ 
+
+
+void setup() {
+    
+Serial.begin(9600);
+
+
+lipo.begin(); // Initialize the MAX17043 LiPo fuel gauge
+lipo.quickStart();
+
+accelgyro.initialize();
+
+ pinMode(motorPin, OUTPUT);
+// Wire.begin();
+
+Particle.subscribe("OFFICEAGENTS", Personal, MY_DEVICES);
+
+   Particle.syncTime();
+    Time.zone(+2);
+
+}
+void loop() {
+
+        if (Time.hour() >= 21){
+    System.sleep(SLEEP_MODE_DEEP, 32400);
+}
+  
+ accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+    
+    int totalAccel = abs(ax) + abs (ay) + abs(az);
+    int totalGyro  = abs(gx) + abs (gy) + abs(gz);
+    
+    int  stepValue = sqrt(pow(ax, 2) + pow(ay, 2) + pow(az, 2));
+   Serial.print("AY: ");
+   Serial.print(ay);
+   Serial.print("AZ: ");
+   Serial.println(az);
+   delay(100);
+
+     if (lastgyroCheck + gyro_CHECK_INTERVAL < millis()) {
+   lastgyroCheck = millis();
+    String StrGyro  = String(az);  
+    Particle.publish("az", StrGyro, PRIVATE);    
+     }
+    
+if(telling == true){
+if(oldsteps > 0){
+    total = (totalsteps - oldsteps);
+    }
+    else{
+    total = totalsteps;
+    }
+    oldsteps = totalsteps;
+    totalsteps = totalsteps + total;
+    telling = false;
+}
+
+
+     if(total < 125 && total > -1){
+    Timer2 = millis() - lastTime;
+    if (Timer2 <= 20000 && vibration == true) {
+    Serial.println("Beweeg");
+    digitalWrite(motorPin, HIGH);
+    }
+    if (datasend == true){
+    String StrSteps  = String(total);
+    Particle.publish("Steps", StrSteps, PRIVATE);
+    datasend = false;
+    }
+  }
+
+    if (az < -1){
+        vibration = false;
+        if (vibration == false){
+        digitalWrite(motorPin, LOW);
+        Serial.println("Stil"); 
+        }
+    }
+}    
+    
+     
+
+
